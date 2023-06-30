@@ -27,3 +27,4 @@ replay_pid*
 /tokens/
 /src/main/resources/credentials.json
 /.idea/
+/src/main/resources/discord-token.txt

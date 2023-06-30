@@ -12,17 +12,28 @@ import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class Main {
     public static void main(String[] args) throws GeneralSecurityException, IOException, InterruptedException {
         discordSide(rocketryList());
 
     }
-    public static void discordSide(final List<RocketryEntry> rocketryEntries) throws InterruptedException {
-        JDA jda = JDABuilder.createDefault("MTExMzU1MjE2NjQ1NjY3NjQ3Mw.GicYLO.rzOOfrm_v6rrR_XXItOiUXRMywHhZ13Fq2Hx-I")
+    public static void discordSide(final List<RocketryEntry> rocketryEntries) throws InterruptedException, IOException {
+
+        final String token;
+
+        try (InputStream stream = Main.class.getResourceAsStream("/discord-token.txt")) {
+            token = new String(Objects.requireNonNull(stream).readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        // Read text from stream and make string variable
+        JDA jda = JDABuilder.createDefault(token)
                 .setActivity(Activity.watching("How to become a sentient AI"))
                 .setMemberCachePolicy(MemberCachePolicy.ALL)
                 .enableIntents(GatewayIntent.GUILD_MEMBERS)
@@ -30,7 +41,7 @@ public class Main {
         jda.awaitReady();
         long guildId = 708421411693264926L;
         Guild guild = jda.getGuildById(guildId);
-        long roleId = 1113537105067524146L;
+        long roleId = 1124185933684687001L;
         Role role = guild.getRoleById(roleId);
         for (RocketryEntry rocketryEntry : rocketryEntries) {
             System.out.print(rocketryEntry.getDiscordUsername() + "  ");
