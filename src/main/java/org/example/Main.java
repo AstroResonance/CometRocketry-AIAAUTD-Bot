@@ -19,19 +19,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static java.lang.Thread.sleep;
 
 
 public class Main {
     static final String SPREADSHEET_ID = "1-EqQKArLu65S2inRPunV4OSpDpL5uucec1fTfd9k-NQ";
-    static final String SPREADSHEETGID = "1319273";
+    static final int SPREADSHEETGID = 1319273;
     public static void main(String[] args) throws GeneralSecurityException, IOException, InterruptedException {
         final String token;
 
         try (InputStream stream = Main.class.getResourceAsStream("/discord-token.txt")) {
             token = new String(Objects.requireNonNull(stream).readAllBytes(), StandardCharsets.UTF_8);
         }
-        JDA jda = JDABuilder.createDefault(token)
+        final JDA jda = JDABuilder.createDefault(token)
                 .setActivity(Activity.watching("How to become a sentient AI"))
                 .setMemberCachePolicy(MemberCachePolicy.ALL)
                 .enableIntents(GatewayIntent.GUILD_MEMBERS)
@@ -39,15 +38,15 @@ public class Main {
         jda.awaitReady();
 
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-        Sheets service =
+        final Sheets service =
                 new Sheets.Builder(HTTP_TRANSPORT, SheetsQuickstart.JSON_FACTORY, SheetsQuickstart.getCredentials(HTTP_TRANSPORT))
                         .setApplicationName(SheetsQuickstart.APPLICATION_NAME)
                         .build();
         while(true) {
             List<RocketryEntry> rocketryEntries = rocketryList(service);
             discordSide(rocketryEntries, jda);
-            deleteDuplicates(service, SPREADSHEETGID, memberDuplicates(rocketryEntries));
-            sleep(1000);
+            deleteDuplicates(service, memberDuplicates(rocketryEntries));
+            Thread.sleep(1000);
         }
     }
     public static void discordSide(final List<RocketryEntry> rocketryEntries, JDA jda) throws InterruptedException, IOException {
@@ -69,22 +68,22 @@ public class Main {
     }
 
 
-    public static void deleteDuplicates(Sheets service, final String SPREADSHEETGID, int i){
+    public static void deleteDuplicates(Sheets service, int i){
         if(i != -1){
-            BatchUpdateSpreadsheetRequest content = new BatchUpdateSpreadsheetRequest();
-            Request request = new Request()
+            final BatchUpdateSpreadsheetRequest content = new BatchUpdateSpreadsheetRequest();
+            final Request request = new Request()
                     .setDeleteDimension(new DeleteDimensionRequest()
                             .setRange(new DimensionRange()
-                                    .setSheetId(Integer.parseInt(SPREADSHEETGID))
+                                    .setSheetId(SPREADSHEETGID)
                                     .setDimension("ROWS")
                                     .setStartIndex(i + 2)
                                     .setEndIndex(i + 3)
                             )
                     );
 
-            request.setDeleteDimension(new DeleteDimensionRequest().setRange(new DimensionRange().setDimension("ROWS").setStartIndex(i + 2).setEndIndex(i + 3).setSheetId(Integer.parseInt(SPREADSHEETGID))));
+            request.setDeleteDimension(new DeleteDimensionRequest().setRange(new DimensionRange().setDimension("ROWS").setStartIndex(i + 2).setEndIndex(i + 3).setSheetId(SPREADSHEETGID)));
 
-            List<Request> requests = new ArrayList<Request>();
+            final List<Request> requests = new ArrayList<>();
             requests.add(request);
             content.setRequests(requests);
 
@@ -130,12 +129,12 @@ public class Main {
             System.out.println("No data found.");
         } else {
 
-            for (List<Object> row : values) {
-                String meetingCount = (String) row.get(0);
-                String timestamp = (String) row.get(1);
-                String name = (String) row.get(2);
-                String discord = (String) row.get(3);
-                String color = (String) row.get(4);
+            for (final List<Object> row : values) {
+                final String meetingCount = (String) row.get(0);
+                final String timestamp = (String) row.get(1);
+                final String name = (String) row.get(2);
+                final String discord = (String) row.get(3);
+                final String color = (String) row.get(4);
                 System.out.printf("%s, %s, %s, %s, %s \n", row.get(0), row.get(1), row.get(2), row.get(3), row.get(4));
                 rocketryEntries.add(new RocketryEntry(meetingCount,timestamp, name, discord, color));
             }
