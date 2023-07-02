@@ -2,7 +2,7 @@ package org.example;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.services.sheets.v4.Sheets;
-import com.google.api.services.sheets.v4.model.ValueRange;
+import com.google.api.services.sheets.v4.model.*;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
@@ -19,30 +19,44 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import static java.lang.Thread.sleep;
+
+
 public class Main {
+    static final String SPREADSHEET_ID = "1-EqQKArLu65S2inRPunV4OSpDpL5uucec1fTfd9k-NQ";
+    static final String SPREADSHEETGID = "1319273";
     public static void main(String[] args) throws GeneralSecurityException, IOException, InterruptedException {
-        discordSide(rocketryList());
-
-    }
-    public static void discordSide(final List<RocketryEntry> rocketryEntries) throws InterruptedException, IOException {
-
         final String token;
 
         try (InputStream stream = Main.class.getResourceAsStream("/discord-token.txt")) {
             token = new String(Objects.requireNonNull(stream).readAllBytes(), StandardCharsets.UTF_8);
         }
-
-        // Read text from stream and make string variable
         JDA jda = JDABuilder.createDefault(token)
                 .setActivity(Activity.watching("How to become a sentient AI"))
                 .setMemberCachePolicy(MemberCachePolicy.ALL)
                 .enableIntents(GatewayIntent.GUILD_MEMBERS)
                 .build();
         jda.awaitReady();
+
+        final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
+        Sheets service =
+                new Sheets.Builder(HTTP_TRANSPORT, SheetsQuickstart.JSON_FACTORY, SheetsQuickstart.getCredentials(HTTP_TRANSPORT))
+                        .setApplicationName(SheetsQuickstart.APPLICATION_NAME)
+                        .build();
+        while(true) {
+            List<RocketryEntry> rocketryEntries = rocketryList(service);
+            discordSide(rocketryEntries, jda);
+            deleteDuplicates(service, SPREADSHEETGID, memberDuplicates(rocketryEntries));
+            sleep(1000);
+        }
+    }
+    public static void discordSide(final List<RocketryEntry> rocketryEntries, JDA jda) throws InterruptedException, IOException {
+
+        // Read text from stream and make string variable
         long guildId = 708421411693264926L;
         Guild guild = jda.getGuildById(guildId);
-        long roleId = 1124185933684687001L;
-        Role role = guild.getRoleById(roleId);
+        Role role = guild.getRoleById(1124185933684687001L);
+        memberDuplicates(rocketryEntries);
         for (RocketryEntry rocketryEntry : rocketryEntries) {
             System.out.print(rocketryEntry.getDiscordUsername() + "  ");
             System.out.println(rocketryEntry.getName());
@@ -54,17 +68,62 @@ public class Main {
         }
     }
 
-    public static List<RocketryEntry> rocketryList() throws GeneralSecurityException, IOException {
-        final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-        final String spreadsheetId = "1-EqQKArLu65S2inRPunV4OSpDpL5uucec1fTfd9k-NQ";
-        final String range = "A3:D";
+
+    public static void deleteDuplicates(Sheets service, final String SPREADSHEETGID, int i){
+        if(i != -1){
+            BatchUpdateSpreadsheetRequest content = new BatchUpdateSpreadsheetRequest();
+            Request request = new Request()
+                    .setDeleteDimension(new DeleteDimensionRequest()
+                            .setRange(new DimensionRange()
+                                    .setSheetId(Integer.parseInt(SPREADSHEETGID))
+                                    .setDimension("ROWS")
+                                    .setStartIndex(i + 2)
+                                    .setEndIndex(i + 3)
+                            )
+                    );
+
+            request.setDeleteDimension(new DeleteDimensionRequest().setRange(new DimensionRange().setDimension("ROWS").setStartIndex(i + 2).setEndIndex(i + 3).setSheetId(Integer.parseInt(SPREADSHEETGID))));
+
+            List<Request> requests = new ArrayList<Request>();
+            requests.add(request);
+            content.setRequests(requests);
+
+            try {
+                service.spreadsheets().batchUpdate(SPREADSHEET_ID, content).execute();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        else {
+            System.out.println("No duplicates");
+        }
+    }
+
+
+
+    public static int memberDuplicates(final List<RocketryEntry> rocketryEntries) {
+        System.out.println("Entering Member Duplicates");
+        for (int i = 0; i < rocketryEntries.size(); i++) {
+            for (int j = i + 1; j < rocketryEntries.size(); j++) {
+                if (rocketryEntries.get(i).getName().equals(rocketryEntries.get(j).getName())) {
+                    System.out.println(rocketryEntries.get(j).getName() + " with discord username: ");
+                    System.out.println(rocketryEntries.get(j).getDiscordUsername() + " is a duplicate");
+                    System.out.println(i + " " + j);
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+
+    public static List<RocketryEntry> rocketryList(final Sheets service) throws IOException {
+
+        final String range = "A3:E";
         List<RocketryEntry> rocketryEntries = new ArrayList<>();
-        Sheets service =
-                new Sheets.Builder(HTTP_TRANSPORT, SheetsQuickstart.JSON_FACTORY, SheetsQuickstart.getCredentials(HTTP_TRANSPORT))
-                        .setApplicationName(SheetsQuickstart.APPLICATION_NAME)
-                        .build();
         ValueRange response = service.spreadsheets().values()
-                .get(spreadsheetId, range)
+                .get(SPREADSHEET_ID, range)
                 .execute();
         List<List<Object>> values = response.getValues();
         if (values == null || values.isEmpty()) {
@@ -72,12 +131,13 @@ public class Main {
         } else {
 
             for (List<Object> row : values) {
-                String timestamp = (String) row.get(0);
-                String name = (String) row.get(1);
-                String discord = (String) row.get(2);
-                String color = (String) row.get(3);
-                System.out.printf("%s, %s, %s, %s \n", row.get(0), row.get(1), row.get(2), row.get(3));
-                rocketryEntries.add(new RocketryEntry(timestamp, name, discord, color));
+                String meetingCount = (String) row.get(0);
+                String timestamp = (String) row.get(1);
+                String name = (String) row.get(2);
+                String discord = (String) row.get(3);
+                String color = (String) row.get(4);
+                System.out.printf("%s, %s, %s, %s, %s \n", row.get(0), row.get(1), row.get(2), row.get(3), row.get(4));
+                rocketryEntries.add(new RocketryEntry(meetingCount,timestamp, name, discord, color));
             }
         }
         return rocketryEntries;
