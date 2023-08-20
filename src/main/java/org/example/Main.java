@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -24,6 +25,7 @@ import java.util.Objects;
 public class Main {
     static final String SPREADSHEET_ID = "1-EqQKArLu65S2inRPunV4OSpDpL5uucec1fTfd9k-NQ";
     static final int SPREADSHEETGID = 1319273;
+    static final int ROW_SPACES = 2;
     public static void main(String[] args) throws GeneralSecurityException, IOException, InterruptedException {
         final String token;
 
@@ -44,7 +46,7 @@ public class Main {
                         .build();
         while(true) {
             List<RocketryEntry> rocketryEntries = rocketryList(service);
-            discordSide(rocketryEntries, jda);
+            discordSide(rocketryEntries, jda);;
             deleteDuplicates(service, memberDuplicates(rocketryEntries));
             Thread.sleep(1000);
         }
@@ -68,26 +70,35 @@ public class Main {
     }
 
 
-    public static void deleteDuplicates(Sheets service, int i){
-        if(i != -1){
+    public static void deleteDuplicates(Sheets service, Return i) throws IOException {
+        if(i != null){
             final BatchUpdateSpreadsheetRequest content = new BatchUpdateSpreadsheetRequest();
             final Request request = new Request()
                     .setDeleteDimension(new DeleteDimensionRequest()
                             .setRange(new DimensionRange()
                                     .setSheetId(SPREADSHEETGID)
                                     .setDimension("ROWS")
-                                    .setStartIndex(i + 2)
-                                    .setEndIndex(i + 3)
+                                    .setStartIndex(i.getRow1() + ROW_SPACES)
+                                    .setEndIndex(i.getRow1() + ROW_SPACES + 1)
                             )
                     );
 
-            request.setDeleteDimension(new DeleteDimensionRequest().setRange(new DimensionRange().setDimension("ROWS").setStartIndex(i + 2).setEndIndex(i + 3).setSheetId(SPREADSHEETGID)));
+            request.setDeleteDimension(new DeleteDimensionRequest()
+                    .setRange(new DimensionRange()
+                            .setDimension("ROWS")
+                            .setStartIndex(i.getRow1() + ROW_SPACES)
+                            .setEndIndex(i.getRow1() + ROW_SPACES + 1)
+                            .setSheetId(SPREADSHEETGID)));
 
             final List<Request> requests = new ArrayList<>();
             requests.add(request);
             content.setRequests(requests);
 
+
             try {
+                //checkForNull(service, i);
+                System.out.println("Exited checkForNull");
+                updateAttendace(service, i);
                 service.spreadsheets().batchUpdate(SPREADSHEET_ID, content).execute();
 
             } catch (IOException e) {
@@ -99,21 +110,56 @@ public class Main {
         }
     }
 
+    public static void updateAttendace(Sheets service, Return i) throws IOException {
+
+        System.out.println("Updating Attendance");
+        final String cellAddress = "A" + (i.getDuplicateRow() + ROW_SPACES);
+
+        ValueRange response = service.spreadsheets().values()
+                .get(SPREADSHEET_ID, cellAddress)
+                .execute();
+        // Get Current Cell Value
+        int currentCellValue = Integer.parseInt(response.getValues().get(0).get(0).toString());
+
+        // Increment Cell Values
+        currentCellValue++;
+        System.out.println("Current Cell Value: "+ currentCellValue);
+
+        final String newStringValue = String.valueOf(currentCellValue);
+        final Request attendanceRequest = new Request().setUpdateCells(new UpdateCellsRequest()
+                .setStart(new GridCoordinate()
+                        .setSheetId(SPREADSHEETGID)
+                        .setRowIndex(i.getDuplicateRow() + ROW_SPACES)
+                        .setColumnIndex(0))
+                .setRows(List.of(new RowData()
+                        .setValues(List.of(new CellData()
+                                .setUserEnteredValue(new ExtendedValue()
+                                        .setStringValue(newStringValue))))))
+                .setFields("*")
+        );
+        final BatchUpdateSpreadsheetRequest attendance = new BatchUpdateSpreadsheetRequest();
+        final List<Request> requests = new ArrayList<>();
+        requests.add(attendanceRequest);
+        attendance.setRequests(requests);
+        service.spreadsheets().batchUpdate(SPREADSHEET_ID, attendance).execute();
+    }
 
 
-    public static int memberDuplicates(final List<RocketryEntry> rocketryEntries) {
+
+
+    public static Return memberDuplicates(final List<RocketryEntry> rocketryEntries) {
         System.out.println("Entering Member Duplicates");
-        for (int i = 0; i < rocketryEntries.size(); i++) {
-            for (int j = i + 1; j < rocketryEntries.size(); j++) {
-                if (rocketryEntries.get(i).getName().equals(rocketryEntries.get(j).getName())) {
-                    System.out.println(rocketryEntries.get(j).getName() + " with discord username: ");
-                    System.out.println(rocketryEntries.get(j).getDiscordUsername() + " is a duplicate");
-                    System.out.println(i + " " + j);
-                    return i;
+        for (int row1 = 0; row1 < rocketryEntries.size(); row1++) {
+            for (int duplicateRow = row1 + 1; duplicateRow < rocketryEntries.size(); duplicateRow++) {
+                if (rocketryEntries.get(row1).getName().equals(rocketryEntries.get(duplicateRow).getName())) {
+                    System.out.println(rocketryEntries.get(duplicateRow).getName() + " with discord username: ");
+                    System.out.println(rocketryEntries.get(duplicateRow).getDiscordUsername() + " is a duplicate");
+                    System.out.println(row1 + " " + duplicateRow);
+                    return new Return(row1, duplicateRow);
                 }
             }
         }
-        return -1;
+        return null;
     }
 
 
